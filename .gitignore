@@ -814,3 +814,4 @@ kendryte-standalone-demo-bak
 /CMakeSettings.json
 /build_i
 buildRisc/
+.vscode/

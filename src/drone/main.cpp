@@ -17,6 +17,10 @@
 #include "uarths.h"
 #include "utils.h"
 #include "w25qxx.h"
+#include "sdcard.h"
+#include "ff.h"
+#include "rgb2bmp.h"
+
 #define INCBIN_STYLE INCBIN_STYLE_SNAKE
 #define INCBIN_PREFIX
 #include "incbin.h"
@@ -26,7 +30,7 @@
 
 volatile uint32_t g_ai_done_flag;
 volatile uint8_t g_dvp_finish_flag;
-static image_t kpu_image;
+static image_t kpu_image, display_image;
 
 kpu_model_context_t face_detect_task;
 static region_layer_t face_detect_rl;
@@ -66,6 +70,12 @@ static int dvp_irq(void *ctx)
 
 static void io_mux_init(void)
 {
+    /* SD card */
+    fpioa_set_function(27, FUNC_SPI1_SCLK);
+    fpioa_set_function(28, FUNC_SPI1_D0);
+    fpioa_set_function(26, FUNC_SPI1_D1);
+    fpioa_set_function(29, FUNC_GPIOHS7);
+
     /* Init DVP IO map and function settings */
     fpioa_set_function(42, FUNC_CMOS_RST);
     fpioa_set_function(44, FUNC_CMOS_PWDN);
@@ -143,6 +153,8 @@ static void draw_edge(uint32_t *gram, obj_info_t *obj_info, uint32_t index, uint
 
 int main(void)
 {
+    FATFS sdcard_fs;
+
     /* Set CPU and dvp clk */
     sysctl_pll_set_freq(SYSCTL_PLL0, PLL0_OUTPUT_FREQ);
     sysctl_pll_set_freq(SYSCTL_PLL1, PLL1_OUTPUT_FREQ);
@@ -167,6 +179,7 @@ int main(void)
     dvp_set_xclk_rate(24000000);
     dvp_enable_burst();
     dvp_set_output_enable(DVP_OUTPUT_AI, 1);
+    dvp_set_output_enable(DVP_OUTPUT_DISPLAY, 1);
     dvp_set_image_format(DVP_CFG_RGB_FORMAT);
     dvp_set_image_size(320, 240);
     ov2640_init();
@@ -176,7 +189,13 @@ int main(void)
     kpu_image.height = 240;
     image_init(&kpu_image);
 
-    dvp_set_ai_addr((uint32_t*)kpu_image.addr, (uint32_t*)(kpu_image.addr + 320 * 240), (uint32_t*)(kpu_image.addr + 320 * 240 * 2));
+    display_image.pixel = 2;
+    display_image.width = 320;
+    display_image.height = 240;
+    image_init(&display_image);
+
+    dvp_set_ai_addr((uint32_t)kpu_image.addr, (uint32_t)(kpu_image.addr + 320 * 240), (uint32_t)(kpu_image.addr + 320 * 240 * 2));
+    dvp_set_display_addr((uint32_t)display_image.addr);
     dvp_config_interrupt(DVP_CFG_START_INT_ENABLE | DVP_CFG_FINISH_INT_ENABLE, 0);
     dvp_disable_auto();
 
@@ -190,7 +209,7 @@ int main(void)
     if(kpu_load_kmodel(&face_detect_task, model_data) != 0)
     {
         printf("\nmodel init error\n");
-        while(1);
+        return -1;
     }
 
     face_detect_rl.anchor_number = ANCHOR_NUM;
@@ -202,20 +221,34 @@ int main(void)
     /* enable global interrupt */
     sysctl_enable_irq();
 
+    /* SD card init */
+    if (sd_init())
+    {
+        printf("Fail to init SD card\n");
+        return -1;
+    }
+
+    /* mount file system to SD card */
+    if (f_mount(&sdcard_fs, _T("0:"), 1))
+    {
+        printf("Fail to mount file system\n");
+        return -1;
+    }
+
     /* system start */
     printf("System start\n");
-    while(1)
+    while (1)
     {
         g_dvp_finish_flag = 0;
 
         dvp_clear_interrupt(DVP_STS_FRAME_START | DVP_STS_FRAME_FINISH);
         dvp_config_interrupt(DVP_CFG_START_INT_ENABLE | DVP_CFG_FINISH_INT_ENABLE, 1);
-        while(g_dvp_finish_flag == 0);
+        while (g_dvp_finish_flag == 0);
 
-        /* run face detect */
+        /* Run face detect */
         g_ai_done_flag = 0;
         kpu_run_kmodel(&face_detect_task, kpu_image.addr, DMAC_CHANNEL5, ai_done, NULL);
-        while(!g_ai_done_flag);
+        while (!g_ai_done_flag);
 
         float *output;
         size_t output_size;
@@ -224,11 +257,16 @@ int main(void)
         face_detect_rl.input = output;
         region_layer_run(&face_detect_rl, &face_detect_info);
 
-        /* run key point detect */
+        /* Run key point detect */
         printf("Detected %u faces\n", face_detect_info.obj_number);
-        for(uint32_t face_cnt = 0; face_cnt < face_detect_info.obj_number; face_cnt++)
+        for (uint32_t face_cnt = 0; face_cnt < face_detect_info.obj_number; face_cnt++)
         {
-            // draw_edge((uint32_t *)display_image.addr, &face_detect_info, face_cnt, RED);
+            draw_edge((uint32_t *)display_image.addr, &face_detect_info, face_cnt, 0xF800);
+        }
+
+        if (face_detect_info.obj_number > 0)
+        {
+            rgb565tobmp(display_image.addr, 320, 240, _T("0:photo.bmp"));
         }
     }
 }
