@@ -12,30 +12,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <bsp.h>
-#include <sysctl.h>
+#ifndef _IMAGE_PROCESS_H
+#define _IMAGE_PROCESS_H
 
-int core1_function(void *ctx)
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct
 {
-    uint64_t core = current_coreid();
-    printf("Core %ld Hello world\n", core);
-    while(1);
+    uint8_t *addr;
+    uint16_t width;
+    uint16_t height;
+    uint16_t pixel;
+    uint16_t format;
+} image_t;
+
+
+int image_init(image_t *image);
+void image_deinit(image_t *image);
+
+#ifdef __cplusplus
 }
+#endif
 
-int main(void)
-{
-    sysctl_pll_set_freq(SYSCTL_PLL0, 800000000);
-    uint64_t core = current_coreid();
-    int data;
-    printf("Core %ld Hello world\n", core);
-    register_core1(core1_function, NULL);
-
-    /* Clear stdin buffer before scanf */
-    sys_stdin_flush();
-
-    scanf("%d", &data);
-    printf("\nData is %d\n", data);
-    while(1)
-        continue;
-    return 0;
-}
+#endif /* _IMAGE_PROCESS_H */
