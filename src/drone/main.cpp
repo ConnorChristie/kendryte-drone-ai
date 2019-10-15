@@ -20,6 +20,8 @@
 #include "sdcard.h"
 #include "ff.h"
 #include "rgb2bmp.h"
+#include "multiwii.h"
+#include "serial.h"
 
 #define INCBIN_STYLE INCBIN_STYLE_SNAKE
 #define INCBIN_PREFIX
@@ -41,6 +43,7 @@ static float anchor[ANCHOR_NUM * 2] = {1.889, 2.5245, 2.9465, 3.94056, 3.99987, 
 #define LOAD_KMODEL_FROM_FLASH 1
 
 #if LOAD_KMODEL_FROM_FLASH
+#define KMODEL_FLASH_ADDRESS 0xA00000
 #define KMODEL_SIZE (380 * 1024)
 uint8_t model_data[KMODEL_SIZE];
 #else
@@ -87,6 +90,10 @@ static void io_mux_init(void)
     fpioa_set_function(40, FUNC_SCCB_SDA);
 
     sysctl_set_spi0_dvp_data(1);
+
+    /* Serial connection to Drone */
+    fpioa_set_function(24, FUNC_UART2_TX);
+    fpioa_set_function(25, FUNC_UART2_RX);
 }
 
 static void io_set_power(void)
@@ -170,7 +177,7 @@ int main(void)
     w25qxx_init(3, 0);
     w25qxx_enable_quad_mode();
 #if LOAD_KMODEL_FROM_FLASH
-    w25qxx_read_data(0xA00000, model_data, KMODEL_SIZE, W25QXX_QUAD_FAST);
+    w25qxx_read_data(KMODEL_FLASH_ADDRESS, model_data, KMODEL_SIZE, W25QXX_QUAD_FAST);
 #endif
 
     /* DVP init */
@@ -206,7 +213,7 @@ int main(void)
     plic_irq_enable(IRQN_DVP_INTERRUPT);
 
     /* init face detect model */
-    if(kpu_load_kmodel(&face_detect_task, model_data) != 0)
+    if (kpu_load_kmodel(&face_detect_task, model_data) != 0)
     {
         printf("\nmodel init error\n");
         return -1;
@@ -234,6 +241,9 @@ int main(void)
         printf("Fail to mount file system\n");
         return -1;
     }
+
+    serial* se = new serial(UART_DEVICE_2, 115200, UART_BITWIDTH_8BIT, UART_STOP_1, UART_PARITY_NONE);
+    se->init();
 
     /* system start */
     printf("System start\n");
@@ -268,5 +278,17 @@ int main(void)
         {
             rgb565tobmp(display_image.addr, 320, 240, _T("0:photo.bmp"));
         }
+
+
+        Msp::DroneReceiver params = {
+            .roll        = 1300,
+            .pitch       = 1300,
+            .throttle    = (uint16_t)(1200),
+            .yaw         = 1300,
+            .flight_mode = 1000, // DISABLE = Horizon mode
+            .aux_2       = 1300,
+            .arm_mode    = 1300
+        };
+        Msp::send_command<Msp::DroneReceiver>(se, Msp::MspCommand::SET_RAW_RC, &params);
     }
 }
