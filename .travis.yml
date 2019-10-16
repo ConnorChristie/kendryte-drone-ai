@@ -42,5 +42,5 @@ script:
 - |
   cd $TRAVIS_BUILD_DIR/src/drone
   mkdir build && cd build
-  cmake -DPROJ=drone -DTOOLCHAIN=$TRAVIS_BUILD_DIR/cache/kendryte-toolchain/bin .. || exit -1
+  cmake -DPROJ=drone -DTOOLCHAIN=$TRAVIS_BUILD_DIR/cache/kendryte-toolchain/bin ../../../ || exit -1
   make || exit -1
