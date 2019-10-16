@@ -5,8 +5,6 @@ git:
 addons:
   apt:
     packages:
-    - python
-    - python-pip
     - git
     - wget
     - make
@@ -17,7 +15,6 @@ addons:
     - gperf
     - aria2
 cache:
-  - pip
   - directories:
     - cache
 before_install:
@@ -40,35 +37,10 @@ before_install:
 install:
 - export PATH=$TRAVIS_BUILD_DIR/cache/kendryte-toolchain/bin:$PATH
 - export LD_LIBRARY_PATH=$TRAVIS_BUILD_DIR/cache/kendryte-toolchain/bin:$LD_LIBRARY_PATH
-- |
-  cd $TRAVIS_BUILD_DIR
-  export BRANCH=$(if [ "$TRAVIS_BRANCH" == "master" ]; then echo $TRAVIS_BRANCH; else echo "develop"; fi)
-  git clone --single-branch --branch $BRANCH https://github.com/kendryte/kendryte-standalone-demo.git
-  echo "Build branch $BRANCH"
 
 script:
-- export BUILD_DATE=$(date +%Y%m%d)
-## Copy all example code
 - |
-  cd $TRAVIS_BUILD_DIR/src
-  cp -rf $TRAVIS_BUILD_DIR/kendryte-standalone-demo/* .
-  mv $TRAVIS_BUILD_DIR/kendryte-standalone-demo ~/demo
-## Check example code
-- |
-  for DIR in $(ls $TRAVIS_BUILD_DIR/src)
-  do
-    echo "[MAKE]" $TRAVIS_BUILD_DIR/src/$DIR
-    cd $TRAVIS_BUILD_DIR/src/$DIR
-    if [ ! -f "Makefile" ]; then
-      COUNT=$(expr $(ls -1 *.c 2>/dev/null | wc -l) + $(ls -1 *.cpp 2>/dev/null | wc -l) + $(ls -1 *.S 2>/dev/null | wc -l))
-      if [ $COUNT -gt 0 ]; then
-        mkdir build && cd build
-        cmake -DPROJ=$DIR -DTOOLCHAIN=$TRAVIS_BUILD_DIR/cache/kendryte-toolchain/bin ../../../ || exit -1
-        make || exit -1
-      else
-        echo "[IGNORE]" $TRAVIS_BUILD_DIR/src/$DIR
-      fi
-    else
-      make || exit -1
-    fi
-  done
+  cd $TRAVIS_BUILD_DIR/src/drone
+  mkdir build && cd build
+  cmake -DPROJ=drone -DTOOLCHAIN=$TRAVIS_BUILD_DIR/cache/kendryte-toolchain/bin .. || exit -1
+  make || exit -1
