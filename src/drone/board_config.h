@@ -7,6 +7,9 @@
 #define  BOARD_KD233        0
 #define  BOARD_LICHEEDAN    1
 
+#define LOAD_KMODEL_FROM_FLASH 0
+#define SAVE_TO_SDCARD         0
+
 #if OV5640 + OV2640 != 1
 #error ov sensor only choose one
 #endif
