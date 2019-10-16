@@ -1,21 +1,30 @@
 #ifndef _BOARD_CONFIG_
 #define _BOARD_CONFIG_
 
-#define  OV5640             0
-#define  OV2640             1
+#define SAVE_TO_SDCARD 0
 
-#define  BOARD_KD233        0
-#define  BOARD_LICHEEDAN    1
+// 0 = face-detect
+// 1 = yolo
+#define AI_MODEL 0
+#define LOAD_KMODEL_FROM_FLASH 1
 
-#define LOAD_KMODEL_FROM_FLASH 0
-#define SAVE_TO_SDCARD         0
+#if AI_MODEL == 0 // face-detect
+    #define KMODEL_SIZE (380 * 1024)
+    #define KMODEL_FILE_NAME "../../models/yolo.kmodel"
+    #define KMODEL_FLASH_ADDRESS 0x0300000
 
-#if OV5640 + OV2640 != 1
-#error ov sensor only choose one
+    #define ANCHOR_NUM 5
+    static float anchor[ANCHOR_NUM * 2] = {1.889, 2.5245, 2.9465, 3.94056, 3.99987, 5.3658, 5.155437, 6.92275, 6.718375, 9.01025};
+#elif AI_MODEL == 1 // yolo
+    #define KMODEL_SIZE 1351976
+    #define KMODEL_FILE_NAME "../../models/detect.kmodel"
+    #define KMODEL_FLASH_ADDRESS 0x0300000
+
+    #define ANCHOR_NUM 5
+    static float anchor[ANCHOR_NUM * 2] = {1.08, 1.19, 3.42, 4.41, 6.63, 11.38, 9.42, 5.11, 16.62, 10.52};
 #endif
 
-#if BOARD_KD233 + BOARD_LICHEEDAN != 1
-#error board only choose one
-#endif
+#define PLL0_OUTPUT_FREQ 800000000UL
+#define PLL1_OUTPUT_FREQ 400000000UL
 
 #endif

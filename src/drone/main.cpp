@@ -27,9 +27,6 @@
 #define INCBIN_PREFIX
 #include "incbin.h"
 
-#define PLL0_OUTPUT_FREQ 800000000UL
-#define PLL1_OUTPUT_FREQ 400000000UL
-
 volatile uint8_t g_ram_mux = 0;
 volatile uint8_t g_ai_done_flag;
 volatile uint8_t g_dvp_finish_flag;
@@ -42,19 +39,10 @@ kpu_model_context_t face_detect_task;
 static region_layer_t face_detect_rl;
 static obj_info_t face_detect_info;
 
-// #define ANCHOR_NUM 5
-// static float anchor[ANCHOR_NUM * 2] = {1.889, 2.5245, 2.9465, 3.94056, 3.99987, 5.3658, 5.155437, 6.92275, 6.718375, 9.01025};
-
-#define ANCHOR_NUM 5
-static float anchor[ANCHOR_NUM * 2] = {1.08, 1.19, 3.42, 4.41, 6.63, 11.38, 9.42, 5.11, 16.62, 10.52};
-
 #if LOAD_KMODEL_FROM_FLASH
-#define KMODEL_FLASH_ADDRESS 0xA00000
-#define KMODEL_SIZE (380 * 1024)
-uint8_t model_data[KMODEL_SIZE];
+    uint8_t model_data[KMODEL_SIZE];
 #else
-// INCBIN(model, "../../models/detect.kmodel");
-INCBIN(model, "../../models/yolo.kmodel");
+    INCBIN(model, KMODEL_FILE_NAME);
 #endif
 
 static int ai_done(void *ctx)
@@ -250,8 +238,11 @@ int main(void)
     face_detect_rl.anchor = anchor;
     face_detect_rl.threshold = 0.7;
     face_detect_rl.nms_value = 0.3;
-    // region_layer_init(&face_detect_rl, 20, 15, 30, 320, 240);
+#if AI_MODEL == 0
+    region_layer_init(&face_detect_rl, 20, 15, 30, 320, 240);
+#elif AI_MODEL == 1
     region_layer_init(&face_detect_rl, 10, 7, 125, 320, 240);
+#endif
 
     /* system start */
     printf("System start\n");
