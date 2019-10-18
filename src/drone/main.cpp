@@ -22,15 +22,11 @@
 #include "rgb2bmp.h"
 #include "multiwii.h"
 #include "serial.h"
-#include "ring_buffer.h"
+#include "sbus.h"
 
 #define INCBIN_STYLE INCBIN_STYLE_SNAKE
 #define INCBIN_PREFIX
 #include "incbin.h"
-
-#define SBUS_FRAME_SIZE 25
-static volatile uint8_t sbus_buffer1[1];
-static volatile uint8_t sbus_buffer[4 * SBUS_FRAME_SIZE];
 
 volatile uint8_t g_ram_mux = 0;
 volatile uint8_t g_ai_done_flag;
@@ -183,82 +179,6 @@ void print_bytes(char* data, size_t length)
     printf("\n");
 }
 
-typedef struct sbusChannels_s {
-    // 176 bits of data (11 bits per channel * 16 channels) = 22 bytes.
-    unsigned int chan0 : 11;
-    unsigned int chan1 : 11;
-    unsigned int chan2 : 11;
-    unsigned int chan3 : 11;
-    unsigned int chan4 : 11;
-    unsigned int chan5 : 11;
-    unsigned int chan6 : 11;
-    unsigned int chan7 : 11;
-    unsigned int chan8 : 11;
-    unsigned int chan9 : 11;
-    unsigned int chan10 : 11;
-    unsigned int chan11 : 11;
-    unsigned int chan12 : 11;
-    unsigned int chan13 : 11;
-    unsigned int chan14 : 11;
-    unsigned int chan15 : 11;
-    uint8_t flags;
-} __attribute__((__packed__)) sbusChannels_t;
-
-struct sbusFrame_s {
-    uint8_t syncByte;
-    sbusChannels_t channels;
-    uint8_t endByte;
-} __attribute__ ((__packed__));
-
-typedef union sbusFrame_u {
-    uint8_t bytes[SBUS_FRAME_SIZE];
-    struct sbusFrame_s frame;
-} sbusFrame_t;
-
-static volatile int sbus_read = 0;
-
-static volatile sbusFrame_t sbus_frame;
-static volatile uint8_t sbus_position;
-static volatile uint32_t sbus_start_at;
-static volatile bool sbus_done;
-
-static volatile RingBuffer *sbus_buff;
-
-static uint16_t sbus_raw_value_to_normal(const unsigned int raw_val)
-{
-    return (5 * raw_val / 8) + 880;
-}
-
-int on_sbus_rcv(void *ctx)
-{
-    for (int i = 0; i < 4 * SBUS_FRAME_SIZE; i++)
-    {
-        if (sbus_buff->enqueue(sbus_buffer[i]))
-        {
-            // Check if head and tail make for a valid frame
-            if (sbus_buff->at(0) == 0x0F && sbus_buff->at(SBUS_FRAME_SIZE - 1) == 0x00)
-            {
-                sbusFrame_t frame;
-
-                sbus_buff->getBuffer(frame.bytes);
-                sbus_buff->clear();
-
-                printf("Read: %u, %u, %u, %u, %u, %u, %u\n",
-                    sbus_raw_value_to_normal(frame.frame.channels.chan0),
-                    sbus_raw_value_to_normal(frame.frame.channels.chan1),
-                    sbus_raw_value_to_normal(frame.frame.channels.chan2),
-                    sbus_raw_value_to_normal(frame.frame.channels.chan3),
-                    sbus_raw_value_to_normal(frame.frame.channels.chan4),
-                    sbus_raw_value_to_normal(frame.frame.channels.chan5),
-                    sbus_raw_value_to_normal(frame.frame.channels.chan6));
-            }
-        }
-    }
-
-    uart_receive_data_dma_irq(UART_DEVICE_2, DMAC_CHANNEL3, sbus_buffer, 4 * SBUS_FRAME_SIZE, on_sbus_rcv, NULL, 1);
-    return 0;
-}
-
 int main(void)
 {
     FATFS sdcard_fs;
@@ -334,11 +254,8 @@ int main(void)
     }
 #endif
 
-    serial* msp = new serial(UART_DEVICE_1, 115200, UART_BITWIDTH_8BIT, UART_STOP_1, UART_PARITY_NONE);
-    serial* sbus = new serial(UART_DEVICE_2, 100000, UART_BITWIDTH_8BIT, UART_STOP_2, UART_PARITY_EVEN);
-
-    msp->init();
-    sbus->init();
+    Serial *msp = new Serial(UART_DEVICE_1, 115200, UART_BITWIDTH_8BIT, UART_STOP_1, UART_PARITY_NONE);
+    SBUS *sbus = new SBUS(UART_DEVICE_2);
 
     face_detect_rl.anchor_number = ANCHOR_NUM;
     face_detect_rl.anchor = anchor;
@@ -396,30 +313,10 @@ int main(void)
         };
         Msp::send_command<Msp::DroneReceiver>(msp, Msp::MspCommand::SET_RAW_RC, &params);
 
-        sbus_buff = new RingBuffer(SBUS_FRAME_SIZE);
+        // int sbus_read = sbus->read(sbus_buffer, SBUS_FRAME_SIZE);
+        // on_sbus_rcv(sbus_read);
+        // printf("Amount read: %d\n", sbus_read);
 
-        // uart_irq_register(UART_DEVICE_2, UART_RECEIVE, on_sbus_rcv, NULL, 1);
-        // uart_set_receive_trigger(UART_DEVICE_2, UART_RECEIVE_FIFO_1);
-
-        // uart_receive_data_dma_irq(UART_DEVICE_2, DMAC_CHANNEL3, sbus_buffer, sizeof(char), on_sbus_rcv, NULL, 1);
-        uart_receive_data_dma_irq(UART_DEVICE_2, DMAC_CHANNEL3, sbus_buffer, 4 * SBUS_FRAME_SIZE, on_sbus_rcv, NULL, 1);
-
-        while (1)
-        {
-            // uart_receive_data_dma_irq(UART_DEVICE_2, DMAC_CHANNEL3, sbus_buffer, sizeof(sbus_buffer), on_sbus_rcv, NULL, 1);
-        }
-
-        // uint8_t init_buf[10];
-        // while (sbus->read(init_buf, sizeof(init_buf)) > 0)
-        // {
-        //     usleep(100);
-        // }
-
-        // while (1)
-        // {
-        //     char buf[4 * 25];
-        //     int nread = sbus->read(buf, sizeof(buf));
-        //     print_bytes(buf, nread);
-        // }
+        // uart_receive_data_dma_irq(UART_DEVICE_2, DMAC_CHANNEL3, sbus_buffer, SBUS_READ_BUFFER, on_sbus_rcv, NULL, 1);
     }
 }

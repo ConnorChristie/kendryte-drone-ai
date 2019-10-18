@@ -35,7 +35,7 @@ void print_bytes(char* data, size_t length)
 
 constexpr int CLEAR_AMOUNT = 128;
 
-void drain_read_buffer(serial* serial)
+void drain_read_buffer(Serial* serial)
 {
     char* buf = new char[CLEAR_AMOUNT];
     auto drained_amount = serial->read(buf, CLEAR_AMOUNT);
@@ -52,7 +52,7 @@ void drain_read_buffer(serial* serial)
     }
 }
 
-char* send_raw_command(serial* serial, MspCommand command, char* param_data, uint8_t param_size)
+char* send_raw_command(Serial* serial, MspCommand command, char* param_data, uint8_t param_size)
 {
     uint8_t send_param_size = param_data != NULL ? param_size : 0;
 

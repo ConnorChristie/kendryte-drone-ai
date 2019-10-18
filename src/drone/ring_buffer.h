@@ -17,10 +17,11 @@ private:
 
 public:
     RingBuffer(uint8_t capacity);
+    ~RingBuffer();
 
     void clear();
 
-    bool enqueue(char val);
+    bool enqueue(const char &val);
     char at(uint8_t index);
 
     void getBuffer(char* out);

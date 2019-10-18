@@ -3,7 +3,12 @@
 RingBuffer::RingBuffer(uint8_t _capacity)
 {
     capacity = _capacity;
-    buffer = new char[_capacity];
+    buffer = malloc(_capacity * sizeof(char));
+}
+
+RingBuffer::~RingBuffer()
+{
+    free(buffer);
 }
 
 void RingBuffer::clear()
@@ -12,7 +17,7 @@ void RingBuffer::clear()
     tail = 0;
 }
 
-bool RingBuffer::enqueue(char val)
+bool RingBuffer::enqueue(const char &val)
 {
     buffer[tail] = val;
     tail = (tail + 1) % capacity;

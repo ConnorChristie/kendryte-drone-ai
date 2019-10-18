@@ -174,16 +174,16 @@ struct MspRequest
     MspCommand command;
 };
 
-char* send_raw_command(serial* serial, MspCommand command, char* param_data, uint8_t param_size);
+char* send_raw_command(Serial* serial, MspCommand command, char* param_data, uint8_t param_size);
 
 template<typename T>
-void send_command(serial* serial, MspCommand command, T* params)
+void send_command(Serial* serial, MspCommand command, T* params)
 {
     send_raw_command(serial, command, (char*)params, (uint8_t)sizeof(T));
 }
 
 template<typename T>
-T* receive_parameters(serial* serial, MspCommand command)
+T* receive_parameters(Serial* serial, MspCommand command)
 {
     return (T*)send_raw_command(serial, command, NULL, (uint8_t)sizeof(T));
 }
