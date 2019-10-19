@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <cstring>
 #include <cstdio>
+#include "atomic.h"
 #include "uart.h"
 #include "serial.h"
 #include "ring_buffer.h"
@@ -49,20 +50,17 @@ typedef union sbus_frame_u
     struct sbus_frame_s frame;
 } sbus_frame_t;
 
-static int on_sbus_rcv(void *ctx);
-static uint16_t sbus_raw_value_to_normal(const unsigned int raw_val);
-
-class SBUS
+struct sbus_buffer_s
 {
-private:
-    Serial *serial;
     RingBuffer *ring_buffer;
+    uint8_t read_buffer[SBUS_READ_BUFFER_SIZE];
+};
 
-    volatile uint8_t read_buffer[SBUS_READ_BUFFER_SIZE];
-
-public:
-    SBUS(uart_device_number_t device_number);
-    int on_data();
+namespace SBUS
+{
+    void init(uart_device_number_t device_number);
+    int on_sbus_rcv(void *ctx);
+    uint16_t raw_value_to_normal(const unsigned int raw_val);
 };
 
 #endif

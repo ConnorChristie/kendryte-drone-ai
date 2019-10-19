@@ -28,9 +28,9 @@ void print_bytes(char* data, size_t length)
 {
     // Print out raw bytes
     for (unsigned int i = 0; i < length; i++)
-        printf("%02X ", (unsigned char)data[i]);
+        printk("%02X ", (unsigned char)data[i]);
 
-    printf("\n");
+    printk("\n");
 }
 
 constexpr int CLEAR_AMOUNT = 128;

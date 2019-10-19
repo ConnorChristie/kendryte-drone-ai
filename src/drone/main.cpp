@@ -255,7 +255,7 @@ int main(void)
 #endif
 
     Serial *msp = new Serial(UART_DEVICE_1, 115200, UART_BITWIDTH_8BIT, UART_STOP_1, UART_PARITY_NONE);
-    SBUS *sbus = new SBUS(UART_DEVICE_2);
+    SBUS::init(UART_DEVICE_2);
 
     face_detect_rl.anchor_number = ANCHOR_NUM;
     face_detect_rl.anchor = anchor;
@@ -286,7 +286,7 @@ int main(void)
         region_layer_run(&face_detect_rl, &face_detect_info);
 
         /* Run key point detect */
-        printf("Detected %u faces\n", face_detect_info.obj_number);
+        printk("Detected %u faces\n", face_detect_info.obj_number);
         for (uint32_t face_cnt = 0; face_cnt < face_detect_info.obj_number; face_cnt++)
         {
             draw_edge((uint32_t *)(g_ram_mux ? g_lcd_gram0 : g_lcd_gram1), &face_detect_info, face_cnt, 0xF800);
@@ -312,11 +312,5 @@ int main(void)
             .arm_mode    = 1300
         };
         Msp::send_command<Msp::DroneReceiver>(msp, Msp::MspCommand::SET_RAW_RC, &params);
-
-        // int sbus_read = sbus->read(sbus_buffer, SBUS_FRAME_SIZE);
-        // on_sbus_rcv(sbus_read);
-        // printf("Amount read: %d\n", sbus_read);
-
-        // uart_receive_data_dma_irq(UART_DEVICE_2, DMAC_CHANNEL3, sbus_buffer, SBUS_READ_BUFFER, on_sbus_rcv, NULL, 1);
     }
 }
